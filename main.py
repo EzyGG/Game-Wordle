@@ -200,5 +200,5 @@
 # TicTacToe().start()
 
 import wordle
-
-wordle.Wordle().start()
+# word=None, preset=None, theme=wordle.Theme.LIGHT()
+wordle.Wordle().score()

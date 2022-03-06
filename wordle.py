@@ -39,19 +39,19 @@ class State:
 
 
 class RoundedButton(tk.Canvas):
-    def __init__(self, master, letter: str = "", theme: Theme = Theme.LIGHT(), radius=25, locked=False):
+    def __init__(self, master, letter: str = "", theme: Theme = Theme.LIGHT(), state: str = State.NONE, locked=False):
         super().__init__(master)
         self.config(bd=0, highlightthickness=0, height=100, width=100)
 
         self.theme = theme
-        self.radius = radius
+        self.radius = 25
         self.locked = locked
-        self.state = State.NONE
+        self.state = state
         self.letter = letter
 
-        self.bg_rect = self.round_rectangle(5, 5, 95, 95, radius=radius)
-        self.border_rect = self.round_rectangle(5, 5, 95, 95, radius=radius)
-        self.rect = self.round_rectangle(6, 6, 94, 94, tags="#", radius=radius - 1)
+        self.bg_rect = self.round_rectangle(5, 5, 95, 95, radius=self.radius)
+        self.border_rect = self.round_rectangle(5, 5, 95, 95, radius=self.radius)
+        self.rect = self.round_rectangle(6, 6, 94, 94, tags="#", radius=self.radius - 1)
         self.text = self.create_text(50, 50, tags="#", text=letter, anchor="center")
         self.update_colors()
 
@@ -59,6 +59,15 @@ class RoundedButton(tk.Canvas):
         self.tag_bind("#", "<ButtonRelease>", lambda x: self.hover())
         self.tag_bind("#", "<Enter>", lambda x: self.hover())
         self.tag_bind("#", "<Leave>", lambda x: self.reset())
+
+    def __str__(self):
+        return str(self.get_data())
+
+    def __repr__(self):
+        return str(self.get_data())
+
+    def get_data(self):
+        return {"letter": self.letter, "state": self.state, "locked": self.locked}
 
     def change_theme(self, theme: Theme):
         self.theme = theme
@@ -128,33 +137,60 @@ class RoundedButton(tk.Canvas):
             time.sleep(sleep)
 
 
-class Wordle(tk.Tk):
+DEFAULT_PRESET = [[{'letter': 's', 'state': 'null', 'locked': True}, {'letter': 'a', 'state': 'null', 'locked': True},
+                   {'letter': 'l', 'state': 'null', 'locked': True},
+                   {'letter': 'u', 'state': 'misplaced', 'locked': True},
+                   {'letter': 't', 'state': 'misplaced', 'locked': True}],
+                  [{'letter': 'a', 'state': 'null', 'locked': True}, {'letter': 'n', 'state': 'null', 'locked': True},
+                   {'letter': 't', 'state': 'misplaced', 'locked': True},
+                   {'letter': 'r', 'state': 'null', 'locked': True}, {'letter': 'e', 'state': 'good', 'locked': True}],
+                  [{'letter': 'm', 'state': 'null', 'locked': True},
+                   {'letter': 'u', 'state': 'misplaced', 'locked': True},
+                   {'letter': 'c', 'state': 'null', 'locked': True}, {'letter': 'h', 'state': 'null', 'locked': True},
+                   {'letter': 'e', 'state': 'good', 'locked': True}],
+                  [{'letter': 'e', 'state': 'good', 'locked': True}, {'letter': 't', 'state': 'good', 'locked': True},
+                   {'letter': 'u', 'state': 'good', 'locked': True}, {'letter': 'd', 'state': 'good', 'locked': True},
+                   {'letter': 'e', 'state': 'good', 'locked': True}],
+                  [{'letter': '', 'state': 'none', 'locked': True},
+                   {'letter': '', 'state': 'none', 'locked': True},
+                   {'letter': '', 'state': 'none', 'locked': True},
+                   {'letter': '', 'state': 'none', 'locked': True},
+                   {'letter': '', 'state': 'none', 'locked': True}],
+                  [{'letter': '', 'state': 'none', 'locked': True},
+                   {'letter': '', 'state': 'none', 'locked': True},
+                   {'letter': '', 'state': 'none', 'locked': True},
+                   {'letter': '', 'state': 'none', 'locked': True},
+                   {'letter': '', 'state': 'none', 'locked': True}]]
 
-    def __init__(self):
-        self.app_name = "Wordle"
-        self.theme = Theme.LIGHT()
+
+class Wordle(tk.Tk):
+    def __init__(self, title: str = "Wordle", label: str = "Wordle", theme: Theme = Theme.DARK(),
+                 word: str = "etude", preset: list[list[dict]] = DEFAULT_PRESET):
+        self.theme = theme
+        self.label = label
 
         self.DB = []
         try:
             with open("DB 5 7980.txt", "r") as file:
-                self.DB = [unidecode.unidecode(w) for w in file.read().lower().replace("\n", "").replace("  ", " ")
-                           .split(" ") if w and len(w) == 5 and w.isalpha() and w not in self.DB]
+                self.DB = [unidecode.unidecode(w) for w in file.read().lower().replace("\n", " ").replace("  ", " ")
+                           .split(" ") if w and w.isalpha() and w not in self.DB]
         except:
             from db_5_7980 import DB
-            self.DB = [unidecode.unidecode(w) for w in str(DB).lower().replace("\n", "").replace("  ", " ")
-                       .split(" ") if w and len(w) == 5 and w.isalpha() and w not in self.DB]
+            self.DB = [unidecode.unidecode(w) for w in str(DB).lower().replace("\n", " ").replace("  ", " ")
+                       .split(" ") if w and w.isalpha() and w not in self.DB]
 
-        super().__init__(self.app_name)
-        self.title(self.app_name)
+        super().__init__(title)
+        self.title(title)
         self.geometry("550x680")
 
         self.title_lbl = tk.Label(self)
-        self.lines = [tk.Frame(self) for _ in range(6)]
-        self.buttons = [[RoundedButton(l) for _ in range(5)] for l in self.lines]
+        self.lines = [tk.Frame(self) for _ in range(6 if preset is None else len(preset))]
+        self.buttons = [[RoundedButton(l) if preset is None else RoundedButton(l, **preset[i][j])
+                         for j in range(5 if preset is None else len(preset[i]))] for i, l in enumerate(self.lines)]
 
         self.playable = True
         self.cursor = [0, 0]
-        self.word = choice(self.DB)
+        self.word = choice(self.DB) if word is None else word
         print(self.word)
 
         self.update_all()
@@ -172,7 +208,7 @@ class Wordle(tk.Tk):
 
         self.config(bg=self.theme.bg)
 
-        self.title_lbl.config(bg=self.theme.bg, fg=self.theme.fg, font=self.theme.title_font, text=self.app_name)
+        self.title_lbl.config(bg=self.theme.bg, fg=self.theme.fg, font=self.theme.title_font, text=self.label)
         self.title_lbl.place(y=0, relx=0.5, anchor="n")
 
         for i, l in enumerate(self.lines):
@@ -191,6 +227,7 @@ class Wordle(tk.Tk):
     def on_keypress(self, event_or_char):
         if not self.playable:
             return
+        print(self.buttons)
         c = event_or_char if isinstance(event_or_char, str) else str(event_or_char.char)
         if c.isalpha() and self.cursor[1] < len(self.buttons[self.cursor[0]]):
             self.buttons[self.cursor[0]][self.cursor[1]].change_letter(c)
@@ -240,9 +277,16 @@ class Wordle(tk.Tk):
         for b, a in zip(self.buttons[self.cursor[0]], answers):
             b.reveal_animation(b.good if a == State.GOOD else b.misplaced if a == State.MISPLACED else b.null)
 
+        if not sum([0 if a == State.GOOD else 1 for a in answers]) or self.cursor == len(self.buttons) - 1:
+            self.score()
+            return
+
         self.cursor[0] += 1
         self.cursor[1] = 0
         self.playable = True
+
+    def score(self):
+        Scores(theme=self.theme, preset=[[self.buttons[i][j].get_data() for j in range(len(self.buttons[i]))] for i in range(len(self.buttons))]).start()
 
     def error_animation(self, line: int):
         was_playable = not not self.playable
@@ -278,3 +322,95 @@ class Wordle(tk.Tk):
 
     def start(self):
         self.mainloop()
+
+
+class Scores(Wordle):
+    NULL_SCORE = 0
+    NULL_EXP = 0
+    NULL_GP = - 0.5
+    MISPLACED_SCORE = 1
+    MISPLACED_EXP = 5
+    MISPLACED_GP = 0.5
+    GOOD_SCORE = 3
+    GOOD_EXP = 10
+    GOOD_GP = 1
+    NONE_SCORE = 3
+    NONE_EXP = 15
+    NONE_GP = 1
+
+    def __init__(self, preset: list[list[dict]], title: str = "Wordle - Scores", label: str = "Scores", theme: Theme = Theme.DARK()):
+        super().__init__(title=title, label=label, theme=theme, preset=preset)
+        self.geometry("550x705")
+        self.playable = False
+
+        self.score = 0
+
+        self.count_null, self.count_misplaced, self.count_good, self.count_none = 0, 0, 0, 0
+
+        for l in self.buttons:
+            for b in l:
+                s = self.NULL_SCORE if b.state == State.NULL else self.MISPLACED_SCORE if b.state == State.MISPLACED else self.GOOD_SCORE if b.state == State.GOOD else self.NONE_SCORE if b.state == State.NONE else 0
+                self.score += s
+                if b.state == State.NONE:
+                    self.count_none += 1
+                elif b.state == State.GOOD:
+                    self.count_good += 1
+                elif b.state == State.MISPLACED:
+                    self.count_misplaced += 1
+                elif b.state == State.NULL:
+                    self.count_null += 1
+                b.unlock()
+                b.change_letter(f"{str(s) if s else ''}")
+                b.lock()
+
+        self.title_lbl.config(text=label + " : " + str(self.score))
+
+        self.frame = tk.Frame(self)
+        self.line_frame = tk.Frame(self.frame, height=3)
+        self.button_null = RoundedButton(self.frame, state=State.NULL, locked=True)
+        self.button_misplaced = RoundedButton(self.frame, state=State.MISPLACED, locked=True)
+        self.button_good = RoundedButton(self.frame, state=State.GOOD, locked=True)
+        self.button_none = RoundedButton(self.frame, state=State.NONE, locked=True)
+        self.times_null_x = tk.Label(self.frame, text="x")
+        self.times_null_n = tk.Label(self.frame, text=f"{self.count_null}")
+        self.times_misplaced_null_x = tk.Label(self.frame, text="x")
+        self.times_misplaced_null_n = tk.Label(self.frame, text=f"{self.count_misplaced}")
+        self.times_good_null_x = tk.Label(self.frame, text="x")
+        self.times_good_null_n = tk.Label(self.frame, text=f"{self.count_good}")
+        self.times_none_null_x = tk.Label(self.frame, text="x")
+        self.times_none_null_n = tk.Label(self.frame, text=f"{self.count_none}")
+        self.score_label = tk.Label(self.frame)
+        self.score_null = tk.Label(self.frame)
+        self.score_misplaced = tk.Label(self.frame)
+        self.score_good = tk.Label(self.frame)
+        self.score_none = tk.Label(self.frame)
+        self.exp_label = tk.Label(self.frame)
+        self.exp_null = tk.Label(self.frame)
+        self.exp_misplaced = tk.Label(self.frame)
+        self.exp_good = tk.Label(self.frame)
+        self.exp_none = tk.Label(self.frame)
+        self.gp_label = tk.Label(self.frame)
+        self.gp_null = tk.Label(self.frame)
+        self.gp_misplaced = tk.Label(self.frame)
+        self.gp_good = tk.Label(self.frame)
+        self.gp_none = tk.Label(self.frame)
+
+        self.unbind("<Configure>")
+        self.bind("<Configure>", self.update_all_overridden)
+
+    def update_all_overridden(self, event=None):
+        self.update_all()
+        # y -> i * <box_size>
+        # + <font_size> * 1.5(=> natural pady)
+        # + half_of_<box_size>(=> because of anchor="center")
+        # + 5(=> title pady)
+        self.frame.config(bg=self.theme.bg)
+        self.frame.place(y=len(self.buttons) * 100 + self.theme.title_font[1] * 1.5, relx=0.5, anchor="n")
+        self.line_frame.config(bg=self.theme.fg)
+        self.line_frame.grid(sticky="nesw", row=0, column=0, rowspan=2, pady=5)
+        self.frame.grid_propagate()
+
+        self.times_null_x.config(bg=self.theme.bg, fg=self.theme.fg, font=self.theme.text_font)
+        self.times_null_x.grid(sticky="nesw", row=1, column=0, pady=5, padx=5)
+        self.times_null_n.config(bg=self.theme.bg, fg=self.theme.fg, font=self.theme.text_font)
+        self.times_null_n.grid(sticky="nesw", row=1, column=1, pady=5, padx=5)
